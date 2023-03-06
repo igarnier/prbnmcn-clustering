@@ -30,9 +30,7 @@ module Make : functor
   (E : Intf.Metric)
   (S : Element_set with type elt = E.t)
   -> sig
-  type cluster = { set : S.t; tree : tree; index : int }
-
-  and tree = Node of cluster * cluster | Leaf
+  type cluster = { index: int; set: S.t; children: (cluster * cluster) option; }
 
   val cluster_with_initial : S.t list -> cluster
 
