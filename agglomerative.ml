@@ -16,41 +16,28 @@ module Make =
     (S : Element_set with type elt = E.t)
     ->
     struct
-      type cluster = { set : S.t; tree : tree; uid : int }
+      type cluster = { set : S.t; tree : tree; index : int }
 
       and tree = Node of cluster * cluster | Leaf
 
-      let uid =
-        let x = ref (-1) in
-        fun () ->
-          incr x ;
-          !x
+      let mkcluster index set tree = { set; tree; index }
 
-      let mkcluster set tree = { set; tree; uid = uid () }
-
-      (* Hash distance computation between clusters. *)
-      module Table = Hashtbl.Make (struct
-          type t = cluster * cluster
-
-          let equal (c1, c2) (c1', c2') =
-            (c1.uid = c1'.uid && c2.uid = c2'.uid)
-            || (c1.uid = c2'.uid && c2.uid = c1'.uid)
-
-          let hash (c1, c2) =
-            if c1.uid < c2.uid then Hashtbl.hash (c1.uid, c2.uid)
-            else Hashtbl.hash (c2.uid, c1.uid)
-        end)
-
-      let dist sz =
-        let table = Table.create sz in
+      let precompute_dist clusters =
+        let len = List.length clusters * 2 - 1 in
+        let table = Array.init len (fun i ->
+            Array.init len (fun j ->
+                if i = j
+                then Some 0.0
+                else None
+              )
+          )
+        in
         fun c1 c2 ->
-          if c1.uid = c2.uid then 0.0
-          else
-            match Table.find_opt table (c1, c2) with
+            match table.(c1.index).(c2.index) with
             | Some dist -> dist
             | None ->
               let dist = S.dist c1.set c2.set in
-              Table.add table (c1, c2) dist ;
+              table.(c1.index).(c2.index) <- Some dist;
               dist
 
       let minimum_pairwise_distance (dist : cluster -> cluster -> float) clusters =
@@ -80,25 +67,24 @@ module Make =
           in
           acc
 
-      let rec iterate dist clusters =
+      let rec iterate i dist clusters =
         match clusters with
         | [] -> invalid_arg "empty cluster list"
         | [c] -> c
         | _ ->
           let (_d, c, c') = minimum_pairwise_distance dist clusters in
           let clusters =
-            List.filter (fun c0 -> c0.uid <> c.uid && c0.uid <> c'.uid) clusters
+            List.filter (fun c0 -> c0.index <> c.index && c0.index <> c'.index) clusters
           in
-          let joined = mkcluster (S.join c.set c'.set) (Node (c, c')) in
-          iterate dist (joined :: clusters)
+          let joined = mkcluster i (S.join c.set c'.set) (Node (c, c')) in
+          iterate (i+1) dist (joined :: clusters)
 
       let cluster_with_initial element_sets =
-        let len = List.length element_sets in
-        let dist = dist len in
+        let dist = precompute_dist element_sets in
         let clusters =
-          List.map (fun x -> mkcluster x Leaf) element_sets
+          List.mapi (fun i x -> mkcluster i x Leaf) element_sets
         in
-        iterate dist clusters
+        iterate (List.length element_sets) dist clusters
 
       let cluster elements =
         List.map (fun x -> S.singleton x) elements

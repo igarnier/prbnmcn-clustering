@@ -30,7 +30,7 @@ module Make : functor
   (E : Intf.Metric)
   (S : Element_set with type elt = E.t)
   -> sig
-  type cluster = { set : S.t; tree : tree; uid : int }
+  type cluster = { set : S.t; tree : tree; index : int }
 
   and tree = Node of cluster * cluster | Leaf
 
