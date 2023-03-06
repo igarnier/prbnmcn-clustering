@@ -22,8 +22,8 @@ module Make =
 
       let mkcluster index set tree = { set; tree; index }
 
-      let precompute_dist clusters =
-        let len = List.length clusters * 2 - 1 in
+      let precompute_dist sets =
+        let len = List.length sets * 2 - 1 in
         let table = Array.init len (fun i ->
             Array.init len (fun j ->
                 if i = j
@@ -32,15 +32,16 @@ module Make =
               )
           )
         in
-        fun c1 c2 ->
-            match table.(c1.index).(c2.index) with
-            | Some dist -> dist
-            | None ->
-              let dist = S.dist c1.set c2.set in
-              table.(c1.index).(c2.index) <- Some dist;
-              dist
+        fun i j ->
+          let i,j = min i j, max i j in
+          match table.(i).(j) with
+          | Some dist -> dist
+          | None ->
+            let dist = S.dist (List.nth sets i) (List.nth sets j) in
+            table.(i).(j) <- Some dist;
+            dist
 
-      let minimum_pairwise_distance (dist : cluster -> cluster -> float) clusters =
+      let minimum_pairwise_distance dist clusters =
         match clusters with
         | [] | [_] -> invalid_arg "cluster list must contain at least two clusters"
         | c1 :: c2 :: _tl ->
@@ -53,7 +54,7 @@ module Make =
                         let acc =
                           if j > i then
                             let (best_d, _, _) = acc in
-                            let d = dist c1 c2 in
+                            let d = dist i j in
                             if d < best_d then (d, c1, c2) else acc
                           else acc
                         in
@@ -62,7 +63,7 @@ module Make =
                      clusters
                  in
                  (acc, i + 1))
-              ((dist c1 c2, c1, c2), 0)
+              ((dist c1.index c2.index, c1, c2), 0)
               clusters
           in
           acc
