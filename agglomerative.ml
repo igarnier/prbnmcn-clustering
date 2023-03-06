@@ -92,13 +92,17 @@ module Make =
           let joined = mkcluster (S.join c.set c'.set) (Node (c, c')) in
           iterate dist (joined :: clusters)
 
-      let cluster elements =
-        let len = List.length elements in
+      let cluster_with_initial element_sets =
+        let len = List.length element_sets in
         let dist = dist len in
         let clusters =
-          List.map (fun x -> mkcluster (S.singleton x) Leaf) elements
+          List.map (fun x -> mkcluster x Leaf) element_sets
         in
         iterate dist clusters
+
+      let cluster elements =
+        List.map (fun x -> S.singleton x) elements
+        |> cluster_with_initial
 
       let truncate cluster depth =
         let rec truncate { set; tree; _ } depth queue acc =

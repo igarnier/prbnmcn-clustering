@@ -34,6 +34,8 @@ module Make : functor
 
   and tree = Node of cluster * cluster | Leaf
 
+  val cluster_with_initial : S.t list -> cluster
+
   val cluster : E.t list -> cluster
 
   (** [truncate c depth] returns all the sub-clusters at depth [depth].
