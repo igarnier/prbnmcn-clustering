@@ -16,58 +16,60 @@ module Make =
     (S : Element_set with type elt = E.t)
     ->
     struct
-      type cluster = { index: int; set: S.t; children: (cluster * cluster) option; }
+      type cluster = { index: int; merged_at: float; set: S.t; children: (cluster * cluster) option; }
 
-      let precompute_dist sets =
-        let len = List.length sets * 2 - 1 in
-        let table = Array.init len (fun i ->
-            Array.init len (fun j ->
+      let precompute_dist len =
+        let len_total = len * 2 - 1 in
+        let table = Array.init len_total (fun i ->
+            Array.init len_total (fun j ->
                 if i = j
                 then Some 0.0
                 else None
-              )
-          )
+              ))
         in
-        fun c1 c2 ->
+        fun clusters c1 c2 ->
           let i,j = min c1.index c2.index, max c1.index c2.index in
           match table.(i).(j) with
           | Some dist -> dist
           | None ->
-            let dist = S.dist (List.nth sets i) (List.nth sets j) in
+            let dist = S.dist (List.nth clusters i).set (List.nth clusters j).set in
             table.(i).(j) <- Some dist;
             table.(j).(i) <- Some dist;
             dist
 
-      let minimum_pairwise_distance dist clusters =
+      let minimum_pairwise_distance (dist : cluster -> cluster -> float) clusters =
         match clusters with
         | [] | [_] -> invalid_arg "cluster list must contain at least two clusters"
-        | c1 :: c2 :: _tl ->
+        | c1 :: c2 :: _ ->
           let seq = List.to_seq clusters |> (fun x -> Seq.product x x) in
           Seq.fold_left (fun ((dist_min, _, _) as acc) (a,b) ->
               let dist_new = dist a b in
-              if a.index = b.index || dist_new >= dist_min
+              if a.index = b.index || dist_new > dist_min
               then acc
               else (dist_new, a, b)
             ) (dist c1 c2, c1, c2) seq
 
       let cluster_with_initial element_sets =
-        let dist = precompute_dist element_sets in
+        let dist = precompute_dist (List.length element_sets) in
         let len = List.length element_sets in
         let clusters =
-          List.mapi (fun index set -> {index; set; children = None; }) element_sets
+          List.mapi (fun index set -> {index; merged_at = 0.; set; children = None; }) element_sets;
         in
 
-        let rec iterate index clusters =
-          match clusters with
-          | [] -> failwith "No cluster left"
+        let rec iterate index clusters active_clusters =
+          match active_clusters with
+          | [] -> failwith "No cluster left."
           | [c] -> c
-          | cs ->
-            let _, left, right = minimum_pairwise_distance dist cs in
+          | _ ->
+            let merged_at, left, right = minimum_pairwise_distance (dist clusters) active_clusters in
             let set = S.join left.set right.set in
-            let clusters = {index; set; children = Some (left, right); } :: List.filter (fun x -> x.index = left.index || x.index = right.index) clusters in
-            iterate (index+1) clusters
+            let cluster_new = {index; merged_at; set; children = Some (left, right); } in
+            let clusters = clusters @ [cluster_new] in
+            let active_clusters = cluster_new :: List.filter (fun x -> x.index != left.index && x.index != right.index) active_clusters in
+            Printf.printf "Joined %i %i\n" left.index right.index;
+            iterate (index+1) clusters active_clusters
         in
-        iterate len clusters
+        iterate len clusters clusters
 
       let cluster elements =
         List.map (fun x -> S.singleton x) elements
