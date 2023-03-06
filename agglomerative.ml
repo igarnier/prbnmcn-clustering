@@ -53,23 +53,21 @@ module Make =
               Table.add table (c1, c2) dist ;
               dist
 
-      let minimum_pairwise_distance (dist : cluster -> cluster -> float) clusters
-        =
+      let minimum_pairwise_distance (dist : cluster -> cluster -> float) clusters =
         match clusters with
-        | [] -> invalid_arg "empty cluster list"
-        | [c] -> (0.0, c, c)
-        | c :: c' :: _tl ->
+        | [] | [_] -> invalid_arg "cluster list must contain at least two clusters"
+        | c1 :: c2 :: _tl ->
           let (acc, _) =
             List.fold_left
-              (fun (acc, i) c ->
+              (fun (acc, i) c1 ->
                  let (acc, _) =
                    List.fold_left
-                     (fun (acc, j) c' ->
+                     (fun (acc, j) c2 ->
                         let acc =
                           if j > i then
                             let (best_d, _, _) = acc in
-                            let d = dist c c' in
-                            if d < best_d then (d, c, c') else acc
+                            let d = dist c1 c2 in
+                            if d < best_d then (d, c1, c2) else acc
                           else acc
                         in
                         (acc, j + 1))
@@ -77,7 +75,7 @@ module Make =
                      clusters
                  in
                  (acc, i + 1))
-              ((dist c c', c, c'), 0)
+              ((dist c1 c2, c1, c2), 0)
               clusters
           in
           acc
