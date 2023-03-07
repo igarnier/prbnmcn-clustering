@@ -16,7 +16,7 @@ module Make =
     (S : Element_set with type elt = E.t)
     ->
     struct
-      type cluster = { uid: int; merged_at: float; set: S.t; children: (cluster * cluster) option; }
+      type cluster = { uid: int; merged_at: float; set: S.t; tree: (cluster * cluster) option; }
 
       let uid =
         let x = ref (-1) in
@@ -24,7 +24,7 @@ module Make =
           incr x ;
           !x
 
-      let mkcluster set = { set; merged_at = 0.; children = None; uid = uid () }
+      let mkcluster set = { set; merged_at = 0.; tree = None; uid = uid () }
 
       (* Hash distance computation between clusters. *)
       module Table = Hashtbl.Make (struct
@@ -78,7 +78,7 @@ module Make =
           | _ ->
             let merged_at, left, right = minimum_pairwise_distance dist active_clusters in
             let set = S.join left.set right.set in
-            let cluster_new = {uid = uid (); merged_at; set; children = Some (left, right); } in
+            let cluster_new = {uid = uid (); merged_at; set; tree = Some (left, right); } in
             let active_clusters =
               cluster_new
               :: List.filter (fun x -> x.uid != left.uid && x.uid != right.uid) active_clusters
@@ -92,8 +92,8 @@ module Make =
         |> cluster_with_initial
 
       let truncate cluster depth =
-        let rec truncate { set; children; _ } depth queue acc =
-          match children with
+        let rec truncate { set; tree; _ } depth queue acc =
+          match tree with
           | None -> (
               if depth > 0 then invalid_arg "truncate: tree too short"
               else
@@ -112,8 +112,8 @@ module Make =
         truncate cluster depth [] []
 
       let all_clusters cluster =
-        let rec fold { set; children; _ } depth acc =
-          match children with
+        let rec fold { set; tree; _ } depth acc =
+          match tree with
           | None -> (set, depth) :: acc
           | Some (l, r) ->
             fold r (depth + 1) (fold l (depth + 1) ((set, depth) :: acc))
