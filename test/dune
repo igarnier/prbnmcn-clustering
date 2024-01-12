@@ -1,0 +1,9 @@
+(tests
+  (names clustering_test agglomerative_test)
+  (libraries prbnmcn-clustering unix)
+)
+
+(alias
+        (name runtest)
+        (deps wine.data)
+)

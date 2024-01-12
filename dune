@@ -1,0 +1,3 @@
+(library (public_name prbnmcn-clustering) (name clustering)
+  (libraries psq)
+  (ocamlopt_flags -O3 (-warn-error -39)))
